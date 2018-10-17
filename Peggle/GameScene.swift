@@ -4,6 +4,7 @@ import GameplayKit
 class GameScene: SKScene, SKPhysicsContactDelegate {
     
     let ballSpawnHeightRatio : CGFloat = 3.0
+    let ballColors = ["Blue", "Cyan", "Green", "Grey", "Purple", "Red", "Yellow"]
     
     var scoreLabel: SKLabelNode!
     var score = 0 {
@@ -73,11 +74,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                     
                     box.physicsBody = SKPhysicsBody(rectangleOf: box.size)
                     box.physicsBody?.isDynamic = false
+                    box.name = "box"
                     
                     addChild(box)
                 } else {
+                    
                     if location.y < self.size.height - self.size.height/ballSpawnHeightRatio {return}
-                    let ball = SKSpriteNode(imageNamed: "ballRed")
+                    let ball = SKSpriteNode(imageNamed: "ball"+ballColors[GKRandomDistribution(lowestValue: 0, highestValue: ballColors.count-1).nextInt()])
                     ball.physicsBody = SKPhysicsBody(circleOfRadius: ball.size.width / 2.0)
                     ball.physicsBody!.contactTestBitMask = ball.physicsBody!.collisionBitMask
                     ball.physicsBody?.restitution = 0.4
