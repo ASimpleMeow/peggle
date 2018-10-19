@@ -101,7 +101,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                     return
                 }
                 addBox(at: location)
-            } else if !editingMode && location.y > self.size.height - self.size.height/ballSpawnHeightRatio {
+            } else if !editingMode && location.y > self.size.height - self.size.height/ballSpawnHeightRatio && balls > 0 {
                 let ball = SKSpriteNode(imageNamed: "ball"+ballColors[GKRandomDistribution(lowestValue: 0, highestValue: ballColors.count-1).nextInt()])
                 ball.physicsBody = SKPhysicsBody(circleOfRadius: ball.size.width / 2.0)
                 ball.physicsBody!.contactTestBitMask = ball.physicsBody!.collisionBitMask
@@ -239,7 +239,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         ball.removeFromParent()
         
-        if balls == 0 || children.filter({$0.name=="box"}).count == 0 {
+        if (balls == 0 && children.filter({$0.name=="ball"}).count == 0) || children.filter({$0.name=="box"}).count == 0 {
             finish()
         }
     }
