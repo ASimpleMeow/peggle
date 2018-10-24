@@ -3,6 +3,8 @@ import GameplayKit
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
     
+    var canon: SKSpriteNode!
+    
     let ballSpawnHeightRatio : CGFloat = 3.0
     let boxesToHit : Int = 3
     let ballColors = ["Blue", "Cyan", "Green", "Grey", "Purple", "Red", "Yellow"]
@@ -12,6 +14,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     var balls = 5 {
         didSet {
             ballsLabel.text = "Balls Left: \(balls)"
+        }
+    }
+    
+    var highestScoreLabel: SKLabelNode!
+    var highestScore = 0 {
+        didSet {
+            highestScoreLabel.text = "Highest Score: \(highestScore)"
         }
     }
     
@@ -54,22 +63,28 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         makeBouncer(at: CGPoint(x: 768, y: 0), bit: 0b00001000)
         makeBouncer(at: CGPoint(x: 1024, y: 0), bit: 0b00100000)
         
+        highestScoreLabel = SKLabelNode(fontNamed: "Chalkduster")
+        highestScoreLabel.text = "Highest Score: \(highestScore)"
+        highestScoreLabel.horizontalAlignmentMode = .right
+        highestScoreLabel.position = CGPoint(x: 980, y: 700)
+        addChild(highestScoreLabel)
+        
         scoreLabel = SKLabelNode(fontNamed: "Chalkduster")
         scoreLabel.text = "Score: \(score)"
         scoreLabel.horizontalAlignmentMode = .right
-        scoreLabel.position = CGPoint(x: 980, y: 700)
+        scoreLabel.position = CGPoint(x: 980, y: 650)
         addChild(scoreLabel)
+        
+        ballsLabel = SKLabelNode(fontNamed: "Chalkduster")
+        ballsLabel.text = "Balls Left: \(balls)"
+        ballsLabel.horizontalAlignmentMode = .right
+        ballsLabel.position = CGPoint(x: 980, y: 600)
+        addChild(ballsLabel)
         
         editLabel = SKLabelNode(fontNamed: "Chalkduster")
         editLabel.text = "Edit"
         editLabel.position = CGPoint(x: 80, y: 700)
         addChild(editLabel)
-        
-        ballsLabel = SKLabelNode(fontNamed: "Chalkduster")
-        ballsLabel.text = "Balls Left: \(balls)"
-        ballsLabel.horizontalAlignmentMode = .right
-        ballsLabel.position = CGPoint(x: 980, y: 650)
-        addChild(ballsLabel)
         
         winLabel = SKLabelNode(fontNamed: "Chalkduster")
         winLabel.text = ""
@@ -77,6 +92,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         winLabel.isHidden = true
         addChild(winLabel)
         reset()
+        
+        canon = SKSpriteNode(color: UIColor.gray, size: CGSize(width: 80, height: 40))
+        canon.position = CGPoint(x: self.size.width/2, y: self.size.height-20)
+        canon.zRotation = CGFloat(-Float.pi/2)
+        canon.name = "canon"
+        addChild(canon)
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -101,20 +122,35 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                     return
                 }
                 addBox(at: location)
-            } else if !editingMode && location.y > self.size.height - self.size.height/ballSpawnHeightRatio && balls > 0 {
-                let ball = SKSpriteNode(imageNamed: "ball"+ballColors[GKRandomDistribution(lowestValue: 0, highestValue: ballColors.count-1).nextInt()])
-                ball.physicsBody = SKPhysicsBody(circleOfRadius: ball.size.width / 2.0)
-                ball.physicsBody!.contactTestBitMask = ball.physicsBody!.collisionBitMask
-                ball.physicsBody?.restitution = 0.4
-                ball.position = location
-                ball.name = "ball"
-                ball.userData = ["boxesHit" : 0,
-                                 "bit" : 0b00000000]
-                addChild(ball)
-                balls -= 1
+            } else if !editingMode {
+                
+                let angle = atan2(location.y-canon.position.y, location.x-canon.position.x)
+                let rotateAction = SKAction.rotate(toAngle: angle, duration: 0.1)
+                canon.run(rotateAction, completion: {
+                    if (self.balls > 0) { self.shootBall(at: location, to: self.canon.position) }
+                })
             }
         }
+    }
+    
+    func shootBall(at location: CGPoint, to target: CGPoint){
+        let ball = SKSpriteNode(imageNamed: "ball"+self.ballColors[GKRandomDistribution(lowestValue: 0, highestValue: self.ballColors.count-1).nextInt()])
+        var dx = location.x - target.x
+        var dy = location.y - target.y
+        let magnitude = sqrt(dx*dx+dy*dy) / 200
+        dx *= magnitude
+        dy *= magnitude
         
+        ball.physicsBody = SKPhysicsBody(circleOfRadius: ball.size.width / 2.0)
+        ball.physicsBody!.contactTestBitMask = ball.physicsBody!.collisionBitMask
+        ball.physicsBody?.restitution = 0.4
+        ball.physicsBody?.velocity = CGVector(dx: dx, dy: dy)
+        ball.position = canon.position
+        ball.name = "ball"
+        ball.userData = ["boxesHit" : 0,
+                         "bit" : 0b00000000]
+        addChild(ball)
+        balls -= 1
     }
     
     func addBox(at location:CGPoint){
@@ -133,7 +169,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func reset(){
         winLabel.isHidden = true
         score = 0
-        for n in children where n.name == "box" { n.removeFromParent() }
+        removeChildren(in: children.filter({$0.name == "box"}))
         editingMode = false
         balls = 5
         
@@ -232,10 +268,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func destroy(ball: SKNode) {
-        if let fireParticles = SKEmitterNode(fileNamed: "FireParticles") {
-            fireParticles.position = ball.position
-            addChild(fireParticles)
-        }
+        
+        spawnParticleEffect(at: ball.position)
         
         ball.removeFromParent()
         
@@ -246,8 +280,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     func finish(){
         if balls > 0 { score += balls * score }
-        winLabel.text = "YOU GOT A SCORE OF \(score)"
+        if (score > highestScore){
+            highestScore = score
+            winLabel.text = "YOU GOT A NEW HIGH SCORE OF \(score)"
+            spawnParticleEffect(at: CGPoint(x: 100, y: self.size.height/2))
+            spawnParticleEffect(at: CGPoint(x: self.size.width-100, y: self.size.height/2))
+        } else { winLabel.text = "YOU GOT A SCORE OF \(score)" }
         winLabel.isHidden = false
+    }
+    
+    func spawnParticleEffect(at position: CGPoint){
+        if let fireParticles = SKEmitterNode(fileNamed: "FireParticles") {
+            fireParticles.position = position
+            addChild(fireParticles)
+        }
     }
 }
 
